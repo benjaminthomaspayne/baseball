@@ -71,22 +71,20 @@
 const API_KEY = '08de9aaa-416a-4827-ad9a-cdf2245e3cb7';
 const BASE    = 'https://baseball.highlightly.net';
 
-const TEAMS = {
+const TEAM_CONFIG = {
   cubs: {
-    key:      'cubs',
-    name:     'Chicago Cubs',
-    abbr:     'CHC',
-    hlName:   'Cubs',
-    division: 'NL Central',
-    divKey:   'NL Central'
+    key:         'cubs',
+    name:        'Chicago Cubs',
+    displayName: 'Chicago Cubs',
+    abbr:        'CHC',
+    division:    'NL Central',
   },
   mariners: {
-    key:      'mariners',
-    name:     'Seattle Mariners',
-    abbr:     'SEA',
-    hlName:   'Mariners',
-    division: 'AL West',
-    divKey:   'AL West'
+    key:         'mariners',
+    name:        'Seattle Mariners',
+    displayName: 'Seattle Mariners',
+    abbr:        'SEA',
+    division:    'AL West',
   }
 };
 
@@ -118,77 +116,66 @@ async function apiFetch(path) {
   const res = await fetch(`${BASE}${path}`, {
     headers: { 'x-rapidapi-key': API_KEY }
   });
-  if (!res.ok) throw new Error(`HTTP ${res.status} — ${path}`);
+  if (!res.ok) {
+    const body = await res.text().catch(() => '');
+    throw new Error(`HTTP ${res.status} — ${path} — ${body.slice(0, 120)}`);
+  }
   return res.json();
 }
 
-// Get dates around today for querying recent + upcoming matches
-function getDateRange() {
-  const today = new Date();
-  const dates = [];
-  // 7 days back and 14 days forward
-  for (let i = -7; i <= 14; i++) {
-    const d = new Date(today);
-    d.setDate(d.getDate() + i);
-    dates.push(d.toISOString().split('T')[0]);
-  }
-  return dates;
-}
-
-async function fetchTeamMatches(teamName) {
-  // Fetch matches where team is home or away across a date window
-  // Use limit=100 to get enough games in one call using season param
-  const season = new Date().getFullYear();
-  const [homeData, awayData] = await Promise.all([
-    apiFetch(`/matches?homeTeamName=${encodeURIComponent(teamName)}&league=MLB&season=${season}&limit=100`),
-    apiFetch(`/matches?awayTeamName=${encodeURIComponent(teamName)}&league=MLB&season=${season}&limit=100`)
-  ]);
-  const all = [
-    ...(homeData.data || []),
-    ...(awayData.data  || [])
-  ];
-  // Sort by date
-  all.sort((a, b) => new Date(a.date) - new Date(b.date));
-  return all;
+async function getTeamId(displayName) {
+  const data = await apiFetch(`/teams?displayName=${encodeURIComponent(displayName)}&league=MLB`);
+  const team = (data.data || [])[0];
+  if (!team) throw new Error(`Team not found: ${displayName}`);
+  return team.id;
 }
 
 async function loadTeam(teamKey) {
-  const team = TEAMS[teamKey];
-  const el   = document.getElementById(teamKey);
+  const cfg = TEAM_CONFIG[teamKey];
+  const el  = document.getElementById(teamKey);
 
   try {
-    const [matches, standData] = await Promise.all([
-      fetchTeamMatches(team.hlName),
-      apiFetch(`/standings?league=MLB&season=${new Date().getFullYear()}`)
+    // Step 1: get Highlightly team ID
+    const teamId = await getTeamId(cfg.displayName);
+
+    // Step 2: fetch last 5 games, upcoming matches, and standings in parallel
+    const today    = new Date().toISOString().split('T')[0];
+    const season   = new Date().getFullYear();
+
+    // For upcoming: fetch next 14 days of matches
+    const future = new Date();
+    future.setDate(future.getDate() + 14);
+    const futureDate = future.toISOString().split('T')[0];
+
+    const [lastFive, upcomingHome, upcomingAway, standData] = await Promise.all([
+      apiFetch(`/last-five-games/${teamId}`),
+      apiFetch(`/matches?homeTeamId=${teamId}&league=MLB&season=${season}&limit=20`),
+      apiFetch(`/matches?awayTeamId=${teamId}&league=MLB&season=${season}&limit=20`),
+      apiFetch(`/standings?leagueName=MLB&season=${season}`)
     ]);
 
+    // ── Recent results from last-five-games ───────────────
+    // Returns array of finished games, most recent first
+    const recentGames = (Array.isArray(lastFive) ? lastFive : (lastFive.data || [])).slice(0, 3);
+
+    // ── Upcoming: merge home + away, filter to future, sort ─
     const now = new Date();
+    const allUpcoming = [
+      ...(upcomingHome.data || []),
+      ...(upcomingAway.data  || [])
+    ].filter(m => {
+      const state = m.state?.description;
+      return (state === 'Scheduled' || state === 'In Progress') && new Date(m.date) >= now;
+    }).sort((a, b) => new Date(a.date) - new Date(b.date));
 
-    // Split into finished and upcoming
-    const finished = matches.filter(m =>
-      m.state?.description === 'Finished' || m.state?.description === 'Final'
-    );
-    const upcoming = matches.filter(m =>
-      m.state?.description === 'Scheduled' || m.state?.description === 'In Progress'
-    );
-
-    // Recent: last 3 finished, newest first
-    const recent = finished.slice(-3).reverse();
-
-    // Upcoming: sort and group into series
-    const upcomingSorted = upcoming.filter(m => new Date(m.date) >= now)
-                                   .sort((a,b) => new Date(a.date) - new Date(b.date));
-
+    // Group into series
     const series = [];
-    for (const g of upcomingSorted) {
-      const isHome = g.homeTeam?.name === team.hlName ||
-                     g.homeTeam?.displayName?.includes(team.hlName) ||
-                     g.homeTeam?.abbreviation === team.abbr;
-      const opp    = isHome ? g.awayTeam : g.homeTeam;
+    for (const g of allUpcoming) {
+      const isHome  = g.homeTeam?.id === teamId;
+      const opp     = isHome ? g.awayTeam : g.homeTeam;
       const oppName = opp?.displayName || opp?.name || '?';
-      const oppAbbr = opp?.abbreviation || oppName;
-
-      const last = series[series.length - 1];
+      const oppAbbr = opp?.abbreviation || oppName.slice(0,3).toUpperCase();
+      const last    = series[series.length - 1];
       if (last && last.oppAbbr === oppAbbr && last.isHome === isHome) {
         last.games.push(g);
       } else {
@@ -197,68 +184,67 @@ async function loadTeam(teamKey) {
     }
     const nextTwo = series.slice(0, 2);
 
-    // Parse standings — find our division
-    const allEntries = standData.data || standData.standings || standData || [];
-    // Highlightly standings: array of division objects or flat team entries
-    let divRows = [];
-    let myEntry = null;
+    // ── Standings ─────────────────────────────────────────
+    // Response shape: { data: [ { league, season, standings: [ { division, teams: [...] } ] } ] }
+    let wins = '–', losses = '–', pct = '–', place = '–', divRows = [];
 
-    // Try to find division entries
-    const divTeams = allEntries.filter(e => {
-      const divName = e.division || e.group || '';
-      return divName.includes(team.divKey.split(' ')[0]) &&
-             divName.includes(team.divKey.split(' ')[1] || '');
-    });
+    const standEntry = (standData.data || [])[0];
+    if (standEntry) {
+      const divGroups = standEntry.standings || [];
+      for (const divGroup of divGroups) {
+        const divName = divGroup.division || divGroup.name || '';
+        if (!divName.includes(cfg.division.split(' ')[0]) &&
+            !divName.includes(cfg.division.split(' ')[1])) continue;
 
-    const pool = divTeams.length ? divTeams : allEntries;
-    myEntry = pool.find(e =>
-      (e.team?.name || e.name || '').toLowerCase().includes(team.hlName.toLowerCase()) ||
-      (e.team?.abbreviation || e.abbreviation || '') === team.abbr
-    );
+        const teams = divGroup.teams || [];
+        const me    = teams.find(t =>
+          t.team?.abbreviation === cfg.abbr ||
+          (t.team?.displayName || '').includes(cfg.name.split(' ').pop())
+        );
 
-    // Build division rows — filter to same division if possible
-    divRows = pool.length ? pool : allEntries.filter(e => {
-      const d = e.division || e.group || '';
-      return d === team.divKey;
-    });
+        if (me) {
+          wins   = me.won   ?? me.wins   ?? '–';
+          losses = me.lost  ?? me.losses ?? '–';
+          const w = parseInt(wins), l = parseInt(losses);
+          if (!isNaN(w) && !isNaN(l) && w + l > 0) {
+            pct = (w / (w + l)).toFixed(3).replace(/^0/, '');
+          }
+        }
 
-    // Record + place from standings
-    let wins = '–', losses = '–', pct = '–', place = '–';
-    if (myEntry) {
-      wins   = myEntry.wins   ?? myEntry.won    ?? '–';
-      losses = myEntry.losses ?? myEntry.lost   ?? '–';
-      const w = parseInt(wins), l = parseInt(losses);
-      if (!isNaN(w) && !isNaN(l) && (w + l) > 0) {
-        pct = (w / (w + l)).toFixed(3).replace(/^0/, '');
+        divRows = teams.map((t, i) => {
+          const w  = t.won   ?? t.wins   ?? '–';
+          const l  = t.lost  ?? t.losses ?? '–';
+          const wi = parseInt(w), li = parseInt(l);
+          const p  = (!isNaN(wi) && !isNaN(li) && wi + li > 0)
+            ? (wi / (wi + li)).toFixed(3).replace(/^0/, '') : '–';
+          const gb = t.gamesBehind ?? t.games_behind ?? t.gb ?? (i === 0 ? '—' : '–');
+          const isMe = t.team?.abbreviation === cfg.abbr ||
+                       (t.team?.displayName || '').includes(cfg.name.split(' ').pop());
+          if (isMe) place = ordinal(i + 1);
+          return {
+            abbr: t.team?.abbreviation || '?',
+            id:   t.team?.id,
+            w, l, p,
+            gb: (gb === 0 || gb === '0') ? '—' : gb,
+            isMe
+          };
+        });
+        break;
       }
-      // Find place in divRows
-      const sorted = [...divRows].sort((a, b) =>
-        (parseInt(b.wins ?? b.won ?? 0)) - (parseInt(a.wins ?? a.won ?? 0))
-      );
-      const idx = sorted.findIndex(e =>
-        (e.team?.name || e.name || '').toLowerCase().includes(team.hlName.toLowerCase()) ||
-        (e.team?.abbreviation || e.abbreviation || '') === team.abbr
-      );
-      place = idx >= 0 ? ordinal(idx + 1) : '–';
     }
 
-    // ── Build HTML ───────────────────────────────────────
-    const recentHTML = recent.length ? recent.map(m => {
-      const isHome = m.homeTeam?.name === team.hlName ||
-                     m.homeTeam?.displayName?.includes(team.hlName) ||
-                     m.homeTeam?.abbreviation === team.abbr;
-      const opp    = isHome ? m.awayTeam : m.homeTeam;
-      const oppAbbr = opp?.abbreviation || opp?.name || '?';
-
-      // Parse score from "5 - 8" format
+    // ── Build HTML ────────────────────────────────────────
+    const recentHTML = recentGames.length ? recentGames.map(m => {
+      const isHome  = m.homeTeam?.id === teamId;
+      const opp     = isHome ? m.awayTeam : m.homeTeam;
+      const oppAbbr = opp?.abbreviation || '?';
       const scoreStr = m.state?.score?.current || '';
       const parts    = scoreStr.split('-').map(s => s.trim());
       const homeScore = parts[0] ?? '?';
       const awayScore = parts[1] ?? '?';
-      const myScore  = isHome ? homeScore : awayScore;
-      const oppScore = isHome ? awayScore : homeScore;
-      const won      = parseInt(myScore) > parseInt(oppScore);
-
+      const myScore   = isHome ? homeScore : awayScore;
+      const oppScore  = isHome ? awayScore : homeScore;
+      const won       = parseInt(myScore) > parseInt(oppScore);
       return `
         <div class="game">
           <div class="game-date">${fmtDate(m.date)}</div>
@@ -282,30 +268,18 @@ async function loadTeam(teamKey) {
       </div>`).join('')
     : `<div class="series-block"><div class="series-opp" style="color:#999">No upcoming games found</div></div>`;
 
-    const standHTML = divRows.length ? divRows.map(e => {
-      const tName = e.team?.name || e.name || '?';
-      const tAbbr = e.team?.abbreviation || e.abbreviation || tName.slice(0,3).toUpperCase();
-      const w     = e.wins   ?? e.won  ?? '–';
-      const l     = e.losses ?? e.lost ?? '–';
-      const wi = parseInt(w), li = parseInt(l);
-      const p = (!isNaN(wi) && !isNaN(li) && (wi+li) > 0)
-        ? (wi/(wi+li)).toFixed(3).replace(/^0/,'') : '–';
-      const isMe = tName.toLowerCase().includes(team.hlName.toLowerCase()) || tAbbr === team.abbr;
-      const gb   = e.gamesBehind ?? e.games_behind ?? e.gb ?? '–';
-      const gbDisplay = (gb === 0 || gb === '0' || gb === 0.0) ? '—' : gb;
-      return `
-        <tr class="${isMe ? 'me ' + teamKey : ''}">
-          <td>${tAbbr}</td><td>${w}</td><td>${l}</td><td>${p}</td><td>${gbDisplay}</td>
-        </tr>`;
-    }).join('')
+    const standHTML = divRows.length ? divRows.map(r => `
+      <tr class="${r.isMe ? 'me ' + teamKey : ''}">
+        <td>${r.abbr}</td><td>${r.w}</td><td>${r.l}</td><td>${r.p}</td><td>${r.gb}</td>
+      </tr>`).join('')
     : `<tr><td colspan="5" style="color:#999;padding:12px 14px">Standings unavailable</td></tr>`;
 
     el.innerHTML = `
       <div class="hero ${teamKey}">
         <div class="hero-top">
           <div>
-            <div class="hero-name">${team.name}</div>
-            <div class="hero-sub">${team.division} · ${place} place</div>
+            <div class="hero-name">${cfg.name}</div>
+            <div class="hero-sub">${cfg.division} · ${place} place</div>
           </div>
           <div class="hero-record">
             <div class="big">${wins}–${losses}</div>
@@ -318,7 +292,7 @@ async function loadTeam(teamKey) {
       <div class="section-label">Upcoming series</div>
       ${seriesHTML}
       <div style="margin-bottom:1.5rem"></div>
-      <div class="section-label">${team.division} standings</div>
+      <div class="section-label">${cfg.division} standings</div>
       <div class="standings-card">
         <table>
           <thead><tr><th>Team</th><th>W</th><th>L</th><th>PCT</th><th>GB</th></tr></thead>

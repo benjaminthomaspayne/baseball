@@ -68,9 +68,26 @@
 </div>
 
 <script>
+const API_KEY = '08de9aaa-416a-4827-ad9a-cdf2245e3cb7';
+const BASE    = 'https://baseball.highlightly.net';
+
 const TEAMS = {
-  cubs:     { id: '16', abbr: 'CHC', name: 'Chicago Cubs',     division: 'NL Central' },
-  mariners: { id: '20', abbr: 'SEA', name: 'Seattle Mariners', division: 'AL West'    }
+  cubs: {
+    key:      'cubs',
+    name:     'Chicago Cubs',
+    abbr:     'CHC',
+    hlName:   'Cubs',
+    division: 'NL Central',
+    divKey:   'NL Central'
+  },
+  mariners: {
+    key:      'mariners',
+    name:     'Seattle Mariners',
+    abbr:     'SEA',
+    hlName:   'Mariners',
+    division: 'AL West',
+    divKey:   'AL West'
+  }
 };
 
 function switchTeam(team, btn) {
@@ -97,141 +114,198 @@ function ordinal(n) {
   return n + (s[(v-20)%10] || s[v] || s[0]);
 }
 
-async function fetchJSON(url) {
-  const res = await fetch(url);
-  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+async function apiFetch(path) {
+  const res = await fetch(`${BASE}${path}`, {
+    headers: { 'x-rapidapi-key': API_KEY }
+  });
+  if (!res.ok) throw new Error(`HTTP ${res.status} — ${path}`);
   return res.json();
+}
+
+// Get dates around today for querying recent + upcoming matches
+function getDateRange() {
+  const today = new Date();
+  const dates = [];
+  // 7 days back and 14 days forward
+  for (let i = -7; i <= 14; i++) {
+    const d = new Date(today);
+    d.setDate(d.getDate() + i);
+    dates.push(d.toISOString().split('T')[0]);
+  }
+  return dates;
+}
+
+async function fetchTeamMatches(teamName) {
+  // Fetch matches where team is home or away across a date window
+  // Use limit=100 to get enough games in one call using season param
+  const season = new Date().getFullYear();
+  const [homeData, awayData] = await Promise.all([
+    apiFetch(`/matches?homeTeamName=${encodeURIComponent(teamName)}&league=MLB&season=${season}&limit=100`),
+    apiFetch(`/matches?awayTeamName=${encodeURIComponent(teamName)}&league=MLB&season=${season}&limit=100`)
+  ]);
+  const all = [
+    ...(homeData.data || []),
+    ...(awayData.data  || [])
+  ];
+  // Sort by date
+  all.sort((a, b) => new Date(a.date) - new Date(b.date));
+  return all;
 }
 
 async function loadTeam(teamKey) {
   const team = TEAMS[teamKey];
-  const el = document.getElementById(teamKey);
+  const el   = document.getElementById(teamKey);
 
   try {
-    const [schedData, recordData, standData] = await Promise.all([
-      fetchJSON(`https://site.api.espn.com/apis/site/v2/sports/baseball/mlb/teams/${team.id}/schedule`),
-      fetchJSON(`https://site.api.espn.com/apis/site/v2/sports/baseball/mlb/teams/${team.id}/record`),
-      fetchJSON(`https://site.api.espn.com/apis/v2/sports/baseball/mlb/standings`)
+    const [matches, standData] = await Promise.all([
+      fetchTeamMatches(team.hlName),
+      apiFetch(`/standings?league=MLB&season=${new Date().getFullYear()}`)
     ]);
 
-    // ── Record from dedicated endpoint ───────────────────
-    // items[0] is overall record
-    const overall = recordData.items?.[0];
-    const wins   = overall?.stats?.find(s => s.name === 'wins')?.value ?? '–';
-    const losses = overall?.stats?.find(s => s.name === 'losses')?.value ?? '–';
-    const pct    = overall?.stats?.find(s => s.name === 'winPercent')?.displayValue ?? '–';
+    const now = new Date();
 
-    // ── Schedule: split into completed and upcoming ───────
-    const events = schedData.events || [];
-    const completed = [];
-    const upcoming  = [];
+    // Split into finished and upcoming
+    const finished = matches.filter(m =>
+      m.state?.description === 'Finished' || m.state?.description === 'Final'
+    );
+    const upcoming = matches.filter(m =>
+      m.state?.description === 'Scheduled' || m.state?.description === 'In Progress'
+    );
 
-    for (const ev of events) {
-      const comp     = ev.competitions?.[0];
-      if (!comp) continue;
-      const state    = comp.status?.type?.state;
-      const myComp   = comp.competitors?.find(c => c.team?.id === team.id);
-      const oppComp  = comp.competitors?.find(c => c.team?.id !== team.id);
-      if (!myComp || !oppComp) continue;
+    // Recent: last 3 finished, newest first
+    const recent = finished.slice(-3).reverse();
 
-      const isHome  = myComp.homeAway === 'home';
-      const oppAbbr = oppComp.team?.abbreviation || '?';
-      const oppName = oppComp.team?.displayName   || oppAbbr;
+    // Upcoming: sort and group into series
+    const upcomingSorted = upcoming.filter(m => new Date(m.date) >= now)
+                                   .sort((a,b) => new Date(a.date) - new Date(b.date));
 
-      if (state === 'post') {
-        completed.push({
-          date:     new Date(comp.date),
-          isHome,
-          oppAbbr,
-          myScore:  myComp.score  ?? '?',
-          oppScore: oppComp.score ?? '?',
-          won:      myComp.winner === true
-        });
-      } else if (state === 'pre' || state === 'in') {
-        upcoming.push({ date: new Date(comp.date), isHome, oppAbbr, oppName });
-      }
-    }
-
-    // Most recent 3, newest first
-    const recent = completed.slice(-3).reverse();
-
-    // Group upcoming into series, take first 2
-    const sorted = upcoming.sort((a, b) => a.date - b.date);
     const series = [];
-    for (const g of sorted) {
+    for (const g of upcomingSorted) {
+      const isHome = g.homeTeam?.name === team.hlName ||
+                     g.homeTeam?.displayName?.includes(team.hlName) ||
+                     g.homeTeam?.abbreviation === team.abbr;
+      const opp    = isHome ? g.awayTeam : g.homeTeam;
+      const oppName = opp?.displayName || opp?.name || '?';
+      const oppAbbr = opp?.abbreviation || oppName;
+
       const last = series[series.length - 1];
-      if (last && last.oppAbbr === g.oppAbbr && last.isHome === g.isHome) {
+      if (last && last.oppAbbr === oppAbbr && last.isHome === isHome) {
         last.games.push(g);
       } else {
-        series.push({ oppAbbr: g.oppAbbr, oppName: g.oppName, isHome: g.isHome, games: [g] });
+        series.push({ oppName, oppAbbr, isHome, games: [g] });
       }
     }
     const nextTwo = series.slice(0, 2);
 
-    // ── Standings ─────────────────────────────────────────
-    const findStat = (stats, name) => stats?.find(s => s.name === name)?.displayValue ?? '–';
-    let place = '–', divRows = [];
+    // Parse standings — find our division
+    const allEntries = standData.data || standData.standings || standData || [];
+    // Highlightly standings: array of division objects or flat team entries
+    let divRows = [];
+    let myEntry = null;
 
-    outer:
-    for (const conf of (standData.children || [])) {
-      for (const div of (conf.children || [])) {
-        const entries = div.standings?.entries || [];
-        const mine = entries.find(e => e.team?.id === team.id);
-        if (!mine) continue;
-        place   = findStat(mine.stats, 'playoffSeed');
-        divRows = entries.map(e => ({
-          abbr: e.team?.abbreviation || '?',
-          id:   e.team?.id,
-          w:    findStat(e.stats, 'wins'),
-          l:    findStat(e.stats, 'losses'),
-          p:    findStat(e.stats, 'winPercent'),
-          gb:   findStat(e.stats, 'gamesBehind')
-        }));
-        break outer;
+    // Try to find division entries
+    const divTeams = allEntries.filter(e => {
+      const divName = e.division || e.group || '';
+      return divName.includes(team.divKey.split(' ')[0]) &&
+             divName.includes(team.divKey.split(' ')[1] || '');
+    });
+
+    const pool = divTeams.length ? divTeams : allEntries;
+    myEntry = pool.find(e =>
+      (e.team?.name || e.name || '').toLowerCase().includes(team.hlName.toLowerCase()) ||
+      (e.team?.abbreviation || e.abbreviation || '') === team.abbr
+    );
+
+    // Build division rows — filter to same division if possible
+    divRows = pool.length ? pool : allEntries.filter(e => {
+      const d = e.division || e.group || '';
+      return d === team.divKey;
+    });
+
+    // Record + place from standings
+    let wins = '–', losses = '–', pct = '–', place = '–';
+    if (myEntry) {
+      wins   = myEntry.wins   ?? myEntry.won    ?? '–';
+      losses = myEntry.losses ?? myEntry.lost   ?? '–';
+      const w = parseInt(wins), l = parseInt(losses);
+      if (!isNaN(w) && !isNaN(l) && (w + l) > 0) {
+        pct = (w / (w + l)).toFixed(3).replace(/^0/, '');
       }
+      // Find place in divRows
+      const sorted = [...divRows].sort((a, b) =>
+        (parseInt(b.wins ?? b.won ?? 0)) - (parseInt(a.wins ?? a.won ?? 0))
+      );
+      const idx = sorted.findIndex(e =>
+        (e.team?.name || e.name || '').toLowerCase().includes(team.hlName.toLowerCase()) ||
+        (e.team?.abbreviation || e.abbreviation || '') === team.abbr
+      );
+      place = idx >= 0 ? ordinal(idx + 1) : '–';
     }
 
-    const placeLabel = place !== '–' ? ordinal(parseInt(place)) : '–';
+    // ── Build HTML ───────────────────────────────────────
+    const recentHTML = recent.length ? recent.map(m => {
+      const isHome = m.homeTeam?.name === team.hlName ||
+                     m.homeTeam?.displayName?.includes(team.hlName) ||
+                     m.homeTeam?.abbreviation === team.abbr;
+      const opp    = isHome ? m.awayTeam : m.homeTeam;
+      const oppAbbr = opp?.abbreviation || opp?.name || '?';
 
-    // ── Build HTML ────────────────────────────────────────
-    const recentHTML = recent.length
-      ? recent.map(g => `
-          <div class="game">
-            <div class="game-date">${fmtDate(g.date)}</div>
-            <div class="game-opp">${g.isHome ? 'vs' : '@'} ${g.oppAbbr}</div>
-            <div class="game-score ${g.won ? 'win' : 'loss'}">
-              <span class="pill ${g.won ? 'w' : 'l'}">${g.won ? 'W' : 'L'}</span>${g.myScore}–${g.oppScore}
-            </div>
-          </div>`).join('')
-      : `<div class="game"><div class="game-opp" style="color:#999">No recent results found</div></div>`;
+      // Parse score from "5 - 8" format
+      const scoreStr = m.state?.score?.current || '';
+      const parts    = scoreStr.split('-').map(s => s.trim());
+      const homeScore = parts[0] ?? '?';
+      const awayScore = parts[1] ?? '?';
+      const myScore  = isHome ? homeScore : awayScore;
+      const oppScore = isHome ? awayScore : homeScore;
+      const won      = parseInt(myScore) > parseInt(oppScore);
 
-    const seriesHTML = nextTwo.length
-      ? nextTwo.map(s => `
-          <div class="series-block">
-            <div class="series-header">
-              <div class="series-opp">${s.isHome ? 'vs' : '@'} ${s.oppName}</div>
-              <div class="series-loc">${s.isHome ? 'Home' : 'Away'}</div>
-            </div>
-            <div class="series-games">
-              ${s.games.map(g => `<div class="series-game">${fmtDate(g.date)} · ${fmtTime(g.date)}</div>`).join('')}
-            </div>
-          </div>`).join('')
-      : `<div class="series-block"><div class="series-opp" style="color:#999">No upcoming games found</div></div>`;
+      return `
+        <div class="game">
+          <div class="game-date">${fmtDate(m.date)}</div>
+          <div class="game-opp">${isHome ? 'vs' : '@'} ${oppAbbr}</div>
+          <div class="game-score ${won ? 'win' : 'loss'}">
+            <span class="pill ${won ? 'w' : 'l'}">${won ? 'W' : 'L'}</span>${myScore}–${oppScore}
+          </div>
+        </div>`;
+    }).join('')
+    : `<div class="game"><div class="game-opp" style="color:#999">No recent results found</div></div>`;
 
-    const standHTML = divRows.length
-      ? divRows.map(r => `
-          <tr class="${r.id === team.id ? 'me ' + teamKey : ''}">
-            <td>${r.abbr}</td><td>${r.w}</td><td>${r.l}</td><td>${r.p}</td>
-            <td>${r.gb === '0' || r.gb === '0.0' ? '—' : r.gb}</td>
-          </tr>`).join('')
-      : `<tr><td colspan="5" style="color:#999;padding:12px 14px">Standings unavailable</td></tr>`;
+    const seriesHTML = nextTwo.length ? nextTwo.map(s => `
+      <div class="series-block">
+        <div class="series-header">
+          <div class="series-opp">${s.isHome ? 'vs' : '@'} ${s.oppName}</div>
+          <div class="series-loc">${s.isHome ? 'Home' : 'Away'}</div>
+        </div>
+        <div class="series-games">
+          ${s.games.map(g => `<div class="series-game">${fmtDate(g.date)} · ${fmtTime(g.date)}</div>`).join('')}
+        </div>
+      </div>`).join('')
+    : `<div class="series-block"><div class="series-opp" style="color:#999">No upcoming games found</div></div>`;
+
+    const standHTML = divRows.length ? divRows.map(e => {
+      const tName = e.team?.name || e.name || '?';
+      const tAbbr = e.team?.abbreviation || e.abbreviation || tName.slice(0,3).toUpperCase();
+      const w     = e.wins   ?? e.won  ?? '–';
+      const l     = e.losses ?? e.lost ?? '–';
+      const wi = parseInt(w), li = parseInt(l);
+      const p = (!isNaN(wi) && !isNaN(li) && (wi+li) > 0)
+        ? (wi/(wi+li)).toFixed(3).replace(/^0/,'') : '–';
+      const isMe = tName.toLowerCase().includes(team.hlName.toLowerCase()) || tAbbr === team.abbr;
+      const gb   = e.gamesBehind ?? e.games_behind ?? e.gb ?? '–';
+      const gbDisplay = (gb === 0 || gb === '0' || gb === 0.0) ? '—' : gb;
+      return `
+        <tr class="${isMe ? 'me ' + teamKey : ''}">
+          <td>${tAbbr}</td><td>${w}</td><td>${l}</td><td>${p}</td><td>${gbDisplay}</td>
+        </tr>`;
+    }).join('')
+    : `<tr><td colspan="5" style="color:#999;padding:12px 14px">Standings unavailable</td></tr>`;
 
     el.innerHTML = `
       <div class="hero ${teamKey}">
         <div class="hero-top">
           <div>
             <div class="hero-name">${team.name}</div>
-            <div class="hero-sub">${team.division} · ${placeLabel} place</div>
+            <div class="hero-sub">${team.division} · ${place} place</div>
           </div>
           <div class="hero-record">
             <div class="big">${wins}–${losses}</div>

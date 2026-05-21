@@ -8,17 +8,14 @@
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
   body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #dddbd6; color: #1a1a1a; min-height: 100vh; }
   .wrap { max-width: 480px; margin: 0 auto; padding: 1.25rem 1rem 2rem; }
-
   .team-tabs { display: flex; gap: 8px; margin-bottom: 1.25rem; }
   .tab { flex: 1; padding: 10px; border-radius: 10px; border: none; font-size: 14px; font-weight: 600; cursor: pointer; transition: opacity 0.15s; opacity: 0.4; }
   .tab.cubs-tab { background: #0E3386; color: #fff; }
   .tab.mariners-tab { background: #005C5C; color: #fff; }
   .tab.active { opacity: 1; }
   .tab:hover:not(.active) { opacity: 0.7; }
-
   .content { display: none; }
   .content.visible { display: block; }
-
   .hero { border-radius: 14px; padding: 1.25rem 1.5rem; margin-bottom: 1.25rem; color: #fff; }
   .hero.cubs { background: #0E3386; }
   .hero.mariners { background: #005C5C; }
@@ -27,9 +24,7 @@
   .hero-sub { font-size: 13px; opacity: 0.7; margin-top: 3px; }
   .hero-record .big { font-size: 30px; font-weight: 700; letter-spacing: -0.5px; }
   .hero-record .small { font-size: 12px; opacity: 0.7; text-align: right; margin-top: 1px; }
-
   .section-label { font-size: 11px; font-weight: 600; color: #666; text-transform: uppercase; letter-spacing: 0.07em; margin: 0 0 8px; }
-
   .game-list { display: flex; flex-direction: column; gap: 5px; margin-bottom: 1.5rem; }
   .game { display: flex; align-items: center; gap: 10px; padding: 9px 12px; background: #fff; border-radius: 10px; border: 1px solid #e0e0e0; }
   .game-date { font-size: 12px; color: #888; min-width: 56px; }
@@ -40,14 +35,12 @@
   .pill { display: inline-block; font-size: 10px; font-weight: 700; padding: 2px 6px; border-radius: 20px; margin-right: 5px; }
   .pill.w { background: #d4edda; color: #155724; }
   .pill.l { background: #f8d7da; color: #721c24; }
-
   .series-block { background: #fff; border-radius: 10px; border: 1px solid #e0e0e0; padding: 10px 12px; margin-bottom: 8px; }
   .series-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; }
   .series-opp { font-size: 14px; font-weight: 600; }
   .series-loc { font-size: 11px; color: #888; background: #f0f0f0; padding: 2px 7px; border-radius: 20px; }
   .series-games { display: flex; gap: 6px; flex-wrap: wrap; }
   .series-game { font-size: 12px; color: #555; background: #f7f7f7; border-radius: 6px; padding: 4px 8px; }
-
   .standings-card { background: #fff; border-radius: 10px; border: 1px solid #e0e0e0; overflow: hidden; }
   table { width: 100%; border-collapse: collapse; font-size: 13px; }
   th { text-align: left; padding: 6px 14px; color: #999; font-weight: 500; font-size: 11px; border-bottom: 1px solid #f0f0f0; }
@@ -58,7 +51,6 @@
   tr.me td { font-weight: 700; background: #fafafa; }
   tr.me.cubs td:first-child { color: #0E3386; }
   tr.me.mariners td:first-child { color: #005C5C; }
-
   .loading { text-align: center; padding: 2rem; color: #888; font-size: 14px; }
   .error { background: #fff3cd; border: 1px solid #ffc107; border-radius: 10px; padding: 12px 16px; font-size: 13px; color: #856404; margin-bottom: 1rem; }
   .updated { font-size: 11px; color: #888; text-align: center; padding-top: 1.25rem; }
@@ -77,8 +69,8 @@
 
 <script>
 const TEAMS = {
-  cubs:     { id: '16', abbr: 'CHC', name: 'Chicago Cubs',     division: 'NL Central', emoji: '🐻' },
-  mariners: { id: '20', abbr: 'SEA', name: 'Seattle Mariners', division: 'AL West',    emoji: '🔱' }
+  cubs:     { id: '16', abbr: 'CHC', name: 'Chicago Cubs',     division: 'NL Central' },
+  mariners: { id: '20', abbr: 'SEA', name: 'Seattle Mariners', division: 'AL West'    }
 };
 
 function switchTeam(team, btn) {
@@ -107,7 +99,7 @@ function ordinal(n) {
 
 async function fetchJSON(url) {
   const res = await fetch(url);
-  if (!res.ok) throw new Error(`HTTP ${res.status} for ${url}`);
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
   return res.json();
 }
 
@@ -116,55 +108,54 @@ async function loadTeam(teamKey) {
   const el = document.getElementById(teamKey);
 
   try {
-    // Fetch schedule and standings in parallel
-    // Standings: use /apis/v2/ not /apis/site/v2/ (site/v2 returns a stub)
-    const [schedData, standData] = await Promise.all([
+    const [schedData, recordData, standData] = await Promise.all([
       fetchJSON(`https://site.api.espn.com/apis/site/v2/sports/baseball/mlb/teams/${team.id}/schedule`),
+      fetchJSON(`https://site.api.espn.com/apis/site/v2/sports/baseball/mlb/teams/${team.id}/record`),
       fetchJSON(`https://site.api.espn.com/apis/v2/sports/baseball/mlb/standings`)
     ]);
 
-    // ── Schedule ──────────────────────────────────────────
+    // ── Record from dedicated endpoint ───────────────────
+    // items[0] is overall record
+    const overall = recordData.items?.[0];
+    const wins   = overall?.stats?.find(s => s.name === 'wins')?.value ?? '–';
+    const losses = overall?.stats?.find(s => s.name === 'losses')?.value ?? '–';
+    const pct    = overall?.stats?.find(s => s.name === 'winPercent')?.displayValue ?? '–';
+
+    // ── Schedule: split into completed and upcoming ───────
     const events = schedData.events || [];
     const completed = [];
-    const upcoming = [];
+    const upcoming  = [];
 
     for (const ev of events) {
-      const comp = ev.competitions?.[0];
+      const comp     = ev.competitions?.[0];
       if (!comp) continue;
+      const state    = comp.status?.type?.state;
+      const myComp   = comp.competitors?.find(c => c.team?.id === team.id);
+      const oppComp  = comp.competitors?.find(c => c.team?.id !== team.id);
+      if (!myComp || !oppComp) continue;
 
-      const state  = comp.status?.type?.state; // 'pre' | 'in' | 'post'
-      const myTeam = comp.competitors?.find(c => c.team?.id === team.id);
-      const opp    = comp.competitors?.find(c => c.team?.id !== team.id);
-      if (!myTeam || !opp) continue;
-
-      const isHome  = myTeam.homeAway === 'home';
-      const oppAbbr = opp.team?.abbreviation || '?';
-      const oppName = opp.team?.displayName   || oppAbbr;
+      const isHome  = myComp.homeAway === 'home';
+      const oppAbbr = oppComp.team?.abbreviation || '?';
+      const oppName = oppComp.team?.displayName   || oppAbbr;
 
       if (state === 'post') {
         completed.push({
           date:     new Date(comp.date),
           isHome,
           oppAbbr,
-          myScore:  myTeam.score ?? '?',
-          oppScore: opp.score    ?? '?',
-          won:      myTeam.winner === true
+          myScore:  myComp.score  ?? '?',
+          oppScore: oppComp.score ?? '?',
+          won:      myComp.winner === true
         });
-      } else {
-        upcoming.push({
-          date:    new Date(comp.date),
-          isHome,
-          oppAbbr,
-          oppName,
-          time:    fmtTime(comp.date)
-        });
+      } else if (state === 'pre' || state === 'in') {
+        upcoming.push({ date: new Date(comp.date), isHome, oppAbbr, oppName });
       }
     }
 
-    // Most-recent 3 completed games, newest first
+    // Most recent 3, newest first
     const recent = completed.slice(-3).reverse();
 
-    // Group upcoming into series and take first 2
+    // Group upcoming into series, take first 2
     const sorted = upcoming.sort((a, b) => a.date - b.date);
     const series = [];
     for (const g of sorted) {
@@ -178,10 +169,8 @@ async function loadTeam(teamKey) {
     const nextTwo = series.slice(0, 2);
 
     // ── Standings ─────────────────────────────────────────
-    // /apis/v2/ standings: data.children[] → conferences → .children[] → divisions → .standings.entries[]
-    let wins = '–', losses = '–', pct = '–', place = '–', divRows = [];
-
     const findStat = (stats, name) => stats?.find(s => s.name === name)?.displayValue ?? '–';
+    let place = '–', divRows = [];
 
     outer:
     for (const conf of (standData.children || [])) {
@@ -189,12 +178,7 @@ async function loadTeam(teamKey) {
         const entries = div.standings?.entries || [];
         const mine = entries.find(e => e.team?.id === team.id);
         if (!mine) continue;
-
-        wins   = findStat(mine.stats, 'wins');
-        losses = findStat(mine.stats, 'losses');
-        pct    = findStat(mine.stats, 'winPercent');
-        place  = findStat(mine.stats, 'playoffSeed');
-
+        place   = findStat(mine.stats, 'playoffSeed');
         divRows = entries.map(e => ({
           abbr: e.team?.abbreviation || '?',
           id:   e.team?.id,
@@ -209,7 +193,7 @@ async function loadTeam(teamKey) {
 
     const placeLabel = place !== '–' ? ordinal(parseInt(place)) : '–';
 
-    // ── Render ────────────────────────────────────────────
+    // ── Build HTML ────────────────────────────────────────
     const recentHTML = recent.length
       ? recent.map(g => `
           <div class="game">
@@ -219,7 +203,7 @@ async function loadTeam(teamKey) {
               <span class="pill ${g.won ? 'w' : 'l'}">${g.won ? 'W' : 'L'}</span>${g.myScore}–${g.oppScore}
             </div>
           </div>`).join('')
-      : `<div class="game"><div class="game-opp" style="color:#999">No recent games found</div></div>`;
+      : `<div class="game"><div class="game-opp" style="color:#999">No recent results found</div></div>`;
 
     const seriesHTML = nextTwo.length
       ? nextTwo.map(s => `
@@ -229,7 +213,7 @@ async function loadTeam(teamKey) {
               <div class="series-loc">${s.isHome ? 'Home' : 'Away'}</div>
             </div>
             <div class="series-games">
-              ${s.games.map(g => `<div class="series-game">${fmtDate(g.date)} · ${g.time}</div>`).join('')}
+              ${s.games.map(g => `<div class="series-game">${fmtDate(g.date)} · ${fmtTime(g.date)}</div>`).join('')}
             </div>
           </div>`).join('')
       : `<div class="series-block"><div class="series-opp" style="color:#999">No upcoming games found</div></div>`;
@@ -238,7 +222,7 @@ async function loadTeam(teamKey) {
       ? divRows.map(r => `
           <tr class="${r.id === team.id ? 'me ' + teamKey : ''}">
             <td>${r.abbr}</td><td>${r.w}</td><td>${r.l}</td><td>${r.p}</td>
-            <td>${r.gb === '0' || r.gb === '0.0' || r.gb === '.0' ? '—' : r.gb}</td>
+            <td>${r.gb === '0' || r.gb === '0.0' ? '—' : r.gb}</td>
           </tr>`).join('')
       : `<tr><td colspan="5" style="color:#999;padding:12px 14px">Standings unavailable</td></tr>`;
 
@@ -255,14 +239,11 @@ async function loadTeam(teamKey) {
           </div>
         </div>
       </div>
-
       <div class="section-label">Recent results</div>
       <div class="game-list">${recentHTML}</div>
-
       <div class="section-label">Upcoming series</div>
       ${seriesHTML}
       <div style="margin-bottom:1.5rem"></div>
-
       <div class="section-label">${team.division} standings</div>
       <div class="standings-card">
         <table>
@@ -271,10 +252,10 @@ async function loadTeam(teamKey) {
         </table>
       </div>`;
 
-  } catch (err) {
+  } catch(err) {
     el.innerHTML = `
       <div class="error">
-        ⚠️ Couldn't load data — ESPN's API may be temporarily unavailable. Try refreshing the page.
+        ⚠️ Couldn't load data. Try refreshing the page.
         <br><small style="opacity:0.7;margin-top:4px;display:block">${err.message}</small>
       </div>`;
   }

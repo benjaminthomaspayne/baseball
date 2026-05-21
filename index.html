@@ -72,8 +72,16 @@ const API_KEY = '08de9aaa-416a-4827-ad9a-cdf2245e3cb7';
 const BASE    = 'https://baseball.highlightly.net';
 
 const TEAMS = {
-  cubs:     { key: 'cubs',     id: 10291191, abbr: 'CHC', name: 'Chicago Cubs',     league: 'NL', division: 'NL Central' },
-  mariners: { key: 'mariners', id: 10291202, abbr: 'SEA', name: 'Seattle Mariners', league: 'AL', division: 'AL West'    }
+  cubs: {
+    key: 'cubs', id: 10291191, abbr: 'CHC', name: 'Chicago Cubs',
+    division: 'NL Central', leagueAbbr: 'NL',
+    divisionIds: [10291191, 10291194, 10291193, 10291200, 10291186] // CHC MIL STL PIT CIN
+  },
+  mariners: {
+    key: 'mariners', id: 10291202, abbr: 'SEA', name: 'Seattle Mariners',
+    division: 'AL West', leagueAbbr: 'AL',
+    divisionIds: [10291202, 10291181, 10291176, 10291199, 10291203] // SEA HOU LAA TEX OAK
+  }
 };
 
 function switchTeam(team, btn) {
@@ -97,11 +105,6 @@ function ordinal(n) {
   const s = ['th','st','nd','rd'], v = n % 100;
   return n + (s[(v-20)%10] || s[v] || s[0]);
 }
-function toArr(d) {
-  if (Array.isArray(d)) return d;
-  if (d && Array.isArray(d.data)) return d.data;
-  return [];
-}
 
 async function apiFetch(path) {
   const res = await fetch(`${BASE}${path}`, { headers: { 'x-rapidapi-key': API_KEY } });
@@ -112,6 +115,10 @@ async function apiFetch(path) {
   return res.json();
 }
 
+function getStat(stats, abbr) {
+  return stats?.find(s => s.abbreviation === abbr)?.displayValue ?? '–';
+}
+
 async function loadTeam(teamKey) {
   const team = TEAMS[teamKey];
   const el   = document.getElementById(teamKey);
@@ -119,30 +126,28 @@ async function loadTeam(teamKey) {
   try {
     const now = new Date();
 
-    // 4 calls: last five, upcoming home, upcoming away, standings
     const [lastFive, upHome, upAway, standRaw] = await Promise.all([
       apiFetch(`/last-five-games?teamId=${team.id}`),
       apiFetch(`/matches?homeTeamId=${team.id}&league=MLB&limit=20`),
       apiFetch(`/matches?awayTeamId=${team.id}&league=MLB&limit=20`),
-      apiFetch(`/standings?abbreviation=${team.league}`)
+      apiFetch(`/standings?abbreviation=${team.leagueAbbr}`)
     ]);
 
-    // ── Recent: last 5 finished games, already sorted newest first ──
-    const recentGames = toArr(lastFive).slice(0, 3);
+    // ── Recent results ────────────────────────────────────
+    const recentGames = (Array.isArray(lastFive) ? lastFive : (lastFive.data || [])).slice(0, 3);
 
-    // ── Upcoming: merge, filter to future scheduled, sort, group into series ──
+    // ── Upcoming series ───────────────────────────────────
     const allUpcoming = [
-      ...toArr(upHome).filter(m => m.state?.description === 'Scheduled' || m.state?.description === 'In Progress'),
-      ...toArr(upAway).filter(m => m.state?.description === 'Scheduled' || m.state?.description === 'In Progress')
-    ].filter(m => new Date(m.date) > now)
-     .sort((a, b) => new Date(a.date) - new Date(b.date));
+      ...(upHome.data || []),
+      ...(upAway.data  || [])
+    ].filter(m => {
+      const s = m.state?.description;
+      return (s === 'Scheduled' || s === 'In Progress') && new Date(m.date) > now;
+    }).sort((a, b) => new Date(a.date) - new Date(b.date));
 
-    // Dedupe by id
+    // Dedupe
     const seen = new Set();
-    const upcoming = allUpcoming.filter(m => {
-      if (seen.has(m.id)) return false;
-      seen.add(m.id); return true;
-    });
+    const upcoming = allUpcoming.filter(m => { if (seen.has(m.id)) return false; seen.add(m.id); return true; });
 
     const series = [];
     for (const g of upcoming) {
@@ -159,34 +164,28 @@ async function loadTeam(teamKey) {
     }
     const nextTwo = series.slice(0, 2);
 
-    // ── Standings: data[] contains division groups ──
-    // Each entry in data has a division name and a teams array
-    const standData = toArr(standRaw);
-    let wins = '–', losses = '–', pct = '–', place = '–', divRows = [];
+    // ── Standings ─────────────────────────────────────────
+    // data[] = array of season objects, pick highest year
+    const seasons = standRaw.data || [];
+    const latest  = seasons.reduce((best, s) => (!best || s.year > best.year) ? s : best, null);
+    const allTeams = latest?.data || [];
 
-    // Find the division group that contains our team
-    for (const group of standData) {
-      const groupTeams = group.teams || group.standings || toArr(group);
-      const found = groupTeams.find(t =>
-        t.team?.id === team.id || t.team?.abbreviation === team.abbr
-      );
-      if (!found) continue;
+    // Filter to our division using hardcoded IDs
+    const divTeams = allTeams.filter(t => team.divisionIds.includes(t.id));
 
-      // Found our division — build rows
-      divRows = groupTeams;
-      groupTeams.forEach((t, i) => {
-        const isMe = t.team?.id === team.id || t.team?.abbreviation === team.abbr;
-        if (!isMe) return;
-        place  = ordinal(i + 1);
-        wins   = t.won   ?? t.wins   ?? t.w ?? '–';
-        losses = t.lost  ?? t.losses ?? t.l ?? '–';
-        const w = parseInt(wins), l = parseInt(losses);
-        if (!isNaN(w) && !isNaN(l) && w + l > 0) {
-          pct = (w / (w + l)).toFixed(3).replace(/^0/, '');
-        }
-      });
-      break;
-    }
+    // Sort by wins desc
+    const sorted = [...divTeams].sort((a, b) => {
+      const wa = parseInt(getStat(a.stats, 'W')) || 0;
+      const wb = parseInt(getStat(b.stats, 'W')) || 0;
+      return wb - wa;
+    });
+
+    const myEntry = allTeams.find(t => t.id === team.id);
+    const wins    = getStat(myEntry?.stats, 'W');
+    const losses  = getStat(myEntry?.stats, 'L');
+    const pct     = getStat(myEntry?.stats, 'PCT');
+    const placeIdx = sorted.findIndex(t => t.id === team.id);
+    const place   = placeIdx >= 0 ? ordinal(placeIdx + 1) : '–';
 
     // ── HTML ──────────────────────────────────────────────
     const recentHTML = recentGames.length ? recentGames.map(m => {
@@ -194,7 +193,6 @@ async function loadTeam(teamKey) {
       const opp      = isHome ? m.awayTeam : m.homeTeam;
       const oppAbbr  = opp?.abbreviation || '?';
       const parts    = (m.state?.score?.current || '').split('-').map(s => s.trim());
-      // score format is "home - away"
       const myScore  = isHome ? (parts[0] ?? '?') : (parts[1] ?? '?');
       const oppScore = isHome ? (parts[1] ?? '?') : (parts[0] ?? '?');
       const won      = parseInt(myScore) > parseInt(oppScore);
@@ -221,19 +219,16 @@ async function loadTeam(teamKey) {
       </div>`).join('')
     : `<div class="series-block"><div class="series-opp" style="color:#999">No upcoming games found</div></div>`;
 
-    const standHTML = divRows.length ? divRows.map(t => {
-      const abbr = t.team?.abbreviation || '?';
-      const w    = t.won   ?? t.wins   ?? t.w ?? '–';
-      const l    = t.lost  ?? t.losses ?? t.l ?? '–';
-      const wi = parseInt(w), li = parseInt(l);
-      const p  = (!isNaN(wi) && !isNaN(li) && wi + li > 0)
-        ? (wi / (wi + li)).toFixed(3).replace(/^0/, '') : '–';
-      const gb = t.gamesBehind ?? t.games_behind ?? t.gb ?? '–';
-      const isMe = t.team?.id === team.id || t.team?.abbreviation === team.abbr;
+    const standHTML = sorted.length ? sorted.map(t => {
+      const w  = getStat(t.stats, 'W');
+      const l  = getStat(t.stats, 'L');
+      const p  = getStat(t.stats, 'PCT');
+      const gb = getStat(t.stats, 'GB');
+      const isMe = t.id === team.id;
       return `
         <tr class="${isMe ? 'me ' + teamKey : ''}">
-          <td>${abbr}</td><td>${w}</td><td>${l}</td><td>${p}</td>
-          <td>${gb === 0 || gb === '0' ? '—' : gb}</td>
+          <td>${t.name}</td><td>${w}</td><td>${l}</td><td>${p}</td>
+          <td>${gb === '-' || gb === '0' ? '—' : gb}</td>
         </tr>`;
     }).join('')
     : `<tr><td colspan="5" style="color:#999;padding:12px 14px">Standings unavailable</td></tr>`;

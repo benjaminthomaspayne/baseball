@@ -6,7 +6,7 @@
 <title>Cubs Tracker</title>
 <style>
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #dddbd6; color: #1a1a1a; min-height: 100vh; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #1c1c1e; color: #f0f0f0; min-height: 100vh; }
   .wrap { max-width: 480px; margin: 0 auto; padding: 1.25rem 1rem 2rem; }
 
   .hero { border-radius: 14px; padding: 1.25rem 1.5rem; margin-bottom: 1.25rem; background: #0E3386; color: #fff; }
@@ -16,41 +16,41 @@
   .hero-record .big { font-size: 32px; font-weight: 700; letter-spacing: -0.5px; }
   .hero-record .small { font-size: 12px; opacity: 0.7; text-align: right; margin-top: 1px; }
 
-  .section-label { font-size: 11px; font-weight: 600; color: #666; text-transform: uppercase; letter-spacing: 0.07em; margin: 0 0 8px; }
+  .section-label { font-size: 11px; font-weight: 600; color: #888; text-transform: uppercase; letter-spacing: 0.07em; margin: 0 0 8px; }
 
   .game-list { display: flex; flex-direction: column; gap: 5px; margin-bottom: 1.5rem; }
-  .game { display: flex; align-items: center; gap: 10px; padding: 9px 12px; background: #fff; border-radius: 10px; border: 1px solid #e0e0e0; }
+  .game { display: flex; align-items: center; gap: 10px; padding: 9px 12px; background: #2c2c2e; border-radius: 10px; border: 1px solid #3a3a3c; }
   .game-date { font-size: 12px; color: #888; min-width: 60px; }
-  .game-opp { font-size: 14px; font-weight: 500; flex: 1; }
+  .game-opp { font-size: 14px; font-weight: 500; flex: 1; color: #f0f0f0; }
   .game-score { font-size: 13px; font-weight: 600; white-space: nowrap; }
-  .game-score.win { color: #1a7a3f; }
-  .game-score.loss { color: #c0392b; }
-  .game-score.upcoming { color: #888; font-weight: 400; font-size: 12px; }
+  .game-score.win { color: #4cd97b; }
+  .game-score.loss { color: #ff6b6b; }
   .pill { display: inline-block; font-size: 10px; font-weight: 700; padding: 2px 6px; border-radius: 20px; margin-right: 5px; }
-  .pill.w { background: #d4edda; color: #155724; }
-  .pill.l { background: #f8d7da; color: #721c24; }
-  .inprogress { background: #fff3cd; color: #856404; }
+  .pill.w { background: #1a4a2e; color: #4cd97b; }
+  .pill.l { background: #4a1a1a; color: #ff6b6b; }
 
-  .series-block { background: #fff; border-radius: 10px; border: 1px solid #e0e0e0; padding: 10px 12px; margin-bottom: 8px; }
+  .live-game { background: #2a2500 !important; border-color: #665500 !important; }
+
+  .series-block { background: #2c2c2e; border-radius: 10px; border: 1px solid #3a3a3c; padding: 10px 12px; margin-bottom: 8px; }
   .series-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; }
-  .series-opp { font-size: 14px; font-weight: 600; }
-  .series-loc { font-size: 11px; color: #888; background: #f0f0f0; padding: 2px 7px; border-radius: 20px; }
+  .series-opp { font-size: 14px; font-weight: 600; color: #f0f0f0; }
+  .series-loc { font-size: 11px; color: #888; background: #3a3a3c; padding: 2px 7px; border-radius: 20px; }
   .series-games { display: flex; gap: 6px; flex-wrap: wrap; }
-  .series-game { font-size: 12px; color: #555; background: #f7f7f7; border-radius: 6px; padding: 4px 8px; }
+  .series-game { font-size: 12px; color: #aaa; background: #3a3a3c; border-radius: 6px; padding: 4px 8px; }
 
-  .standings-card { background: #fff; border-radius: 10px; border: 1px solid #e0e0e0; overflow: hidden; }
+  .standings-card { background: #2c2c2e; border-radius: 10px; border: 1px solid #3a3a3c; overflow: hidden; }
   table { width: 100%; border-collapse: collapse; font-size: 13px; }
-  th { text-align: left; padding: 6px 14px; color: #999; font-weight: 500; font-size: 11px; border-bottom: 1px solid #f0f0f0; }
+  th { text-align: left; padding: 6px 14px; color: #666; font-weight: 500; font-size: 11px; border-bottom: 1px solid #3a3a3c; }
   th:not(:first-child) { text-align: right; }
-  td { padding: 8px 14px; border-bottom: 1px solid #f7f7f7; color: #333; }
+  td { padding: 8px 14px; border-bottom: 1px solid #3a3a3c; color: #ccc; }
   td:not(:first-child) { text-align: right; }
   tr:last-child td { border-bottom: none; }
-  tr.me td { font-weight: 700; background: #f0f4ff; }
-  tr.me td:first-child { color: #0E3386; }
+  tr.me td { font-weight: 700; background: #0e2a5e; color: #fff; }
+  tr.me td:first-child { color: #6b9fff; }
 
-  .loading { text-align: center; padding: 3rem 1rem; color: #888; font-size: 14px; }
-  .error { background: #fff3cd; border: 1px solid #ffc107; border-radius: 10px; padding: 12px 16px; font-size: 13px; color: #856404; margin-bottom: 1rem; }
-  .updated { font-size: 11px; color: #888; text-align: center; padding-top: 1.25rem; }
+  .loading { text-align: center; padding: 3rem 1rem; color: #666; font-size: 14px; }
+  .error { background: #2a2000; border: 1px solid #665500; border-radius: 10px; padding: 12px 16px; font-size: 13px; color: #ffd60a; margin-bottom: 1rem; }
+  .updated { font-size: 11px; color: #555; text-align: center; padding-top: 1.25rem; }
 </style>
 </head>
 <body>
@@ -60,76 +60,131 @@
 </div>
 
 <script>
-const TEAM_ID    = 112;
-const TEAM_NAME  = 'Chicago Cubs';
-const DIV_ID     = 205; // NL Central
-const BASE       = 'https://statsapi.mlb.com/api/v1';
+const TEAM_ID = 112; // Chicago Cubs
+const DIV_ID  = 205; // NL Central
+const BASE    = 'https://statsapi.mlb.com/api/v1';
+
+// Map IANA timezone IDs returned by MLB API to display codes
+const TZ_CODE = {
+  'America/New_York':    'ET',
+  'America/Detroit':     'ET',
+  'America/Toronto':     'ET',
+  'America/Chicago':     'CT',
+  'America/Denver':      'MT',
+  'America/Phoenix':     'MT',
+  'America/Los_Angeles': 'PT',
+  'America/Seattle':     'PT',
+};
+
+// NL Central team IDs for last-10 calculation
+const NL_CENTRAL = [112, 158, 138, 134, 113]; // CHC MIL STL PIT CIN
 
 function fmtDate(dateStr) {
-  // dateStr is YYYY-MM-DD
   const [y, m, d] = dateStr.split('-');
-  const dt = new Date(+y, +m - 1, +d);
-  return dt.toLocaleDateString('en-US', { weekday: 'short', month: 'numeric', day: 'numeric' });
+  return new Date(+y, +m - 1, +d).toLocaleDateString('en-US', {
+    weekday: 'short', month: 'numeric', day: 'numeric'
+  });
 }
 
-function fmtTime(isoStr) {
-  return new Date(isoStr).toLocaleTimeString('en-US', {
-    hour: 'numeric', minute: '2-digit', timeZone: 'America/Chicago'
+function fmtGameTime(isoStr, tzId) {
+  const code = TZ_CODE[tzId] || 'ET';
+  const ianaZone = tzId || 'America/New_York';
+  const time = new Date(isoStr).toLocaleTimeString('en-US', {
+    hour: 'numeric', minute: '2-digit', timeZone: ianaZone
   });
+  return `${time} (${code})`;
 }
 
 function ordinal(n) {
   const s = ['th','st','nd','rd'], v = n % 100;
-  return n + (s[(v-20)%10] || s[v] || s[0]);
+  return n + (s[(v - 20) % 10] || s[v] || s[0]);
 }
 
 function dateStr(d) {
   return d.toISOString().split('T')[0];
 }
 
+async function fetchJSON(url) {
+  const res = await fetch(url);
+  if (!res.ok) throw new Error(`HTTP ${res.status} — ${url}`);
+  return res.json();
+}
+
+// Get all finished regular-season games for a team this season
+async function fetchSeasonGames(teamId, season) {
+  const data = await fetchJSON(
+    `${BASE}/schedule?sportId=1&teamId=${teamId}&season=${season}&gameType=R&fields=dates,date,games,gamePk,gameDate,status,abstractGameState,teams,home,away,team,id,isWinner`
+  );
+  const games = [];
+  for (const d of (data.dates || [])) {
+    for (const g of (d.games || [])) {
+      if (g.status?.abstractGameState === 'Final') {
+        games.push({ date: d.date, ...g });
+      }
+    }
+  }
+  return games.sort((a, b) => new Date(b.gameDate) - new Date(a.gameDate));
+}
+
+// Calculate last-10 record from a team's finished games
+function lastTen(games, teamId) {
+  const last = games.slice(0, 10);
+  let w = 0, l = 0;
+  for (const g of last) {
+    const isHome = g.teams?.home?.team?.id === teamId;
+    const won    = isHome ? g.teams?.home?.isWinner : g.teams?.away?.isWinner;
+    won ? w++ : l++;
+  }
+  return `${w}-${l}`;
+}
+
 async function load() {
   const main = document.getElementById('main');
   try {
-    const today = new Date();
-    const past  = new Date(today); past.setDate(today.getDate() - 10);
-    const future = new Date(today); future.setDate(today.getDate() + 28);
+    const today  = new Date();
     const season = today.getFullYear();
+    const past   = new Date(today); past.setDate(today.getDate() - 10);
+    const future = new Date(today); future.setDate(today.getDate() + 28);
 
-    const [schedData, standData] = await Promise.all([
-      fetch(`${BASE}/schedule?sportId=1&teamId=${TEAM_ID}&startDate=${dateStr(past)}&endDate=${dateStr(future)}&hydrate=linescore,decisions&gameType=R`).then(r => r.json()),
-      fetch(`${BASE}/standings?leagueId=104&season=${season}&standingsTypes=regularSeason&hydrate=team(division)&fields=records,teamRecords,team,name,division,id,abbreviation,divisionRank,gamesBack,winningPercentage,wins,losses`).then(r => r.json())
+    // Fetch schedule (with venue/timezone), standings, and all NL Central season games in parallel
+    const [schedData, standData, ...nlcSeasonGames] = await Promise.all([
+      fetchJSON(`${BASE}/schedule?sportId=1&teamId=${TEAM_ID}&startDate=${dateStr(past)}&endDate=${dateStr(future)}&hydrate=linescore,venue&gameType=R`),
+      fetchJSON(`${BASE}/standings?leagueId=104&season=${season}&standingsTypes=regularSeason&hydrate=team(division)&fields=records,teamRecords,team,name,division,id,abbreviation,divisionRank,gamesBack,winningPercentage,wins,losses`),
+      ...NL_CENTRAL.map(id => fetchSeasonGames(id, season))
     ]);
+
+    // Build map of teamId -> finished games for last-10
+    const teamGamesMap = {};
+    NL_CENTRAL.forEach((id, i) => { teamGamesMap[id] = nlcSeasonGames[i]; });
 
     // ── Parse schedule ────────────────────────────────────
     const allGames = [];
-    for (const date of (schedData.dates || [])) {
-      for (const game of (date.games || [])) {
-        allGames.push({ date: date.date, ...game });
+    for (const d of (schedData.dates || [])) {
+      for (const g of (d.games || [])) {
+        allGames.push({ date: d.date, ...g });
       }
     }
 
-    const finished = allGames.filter(g =>
-      g.status?.abstractGameState === 'Final' || g.status?.detailedState === 'Game Over'
-    ).sort((a, b) => new Date(b.gameDate) - new Date(a.gameDate));
+    const finished   = allGames
+      .filter(g => g.status?.abstractGameState === 'Final')
+      .sort((a, b) => new Date(b.gameDate) - new Date(a.gameDate));
 
-    const inProgress = allGames.filter(g =>
-      g.status?.abstractGameState === 'Live'
-    );
+    const inProgress = allGames
+      .filter(g => g.status?.abstractGameState === 'Live');
 
-    const scheduled = allGames.filter(g =>
-      g.status?.abstractGameState === 'Preview'
-    ).sort((a, b) => new Date(a.gameDate) - new Date(b.gameDate));
+    const scheduled  = allGames
+      .filter(g => g.status?.abstractGameState === 'Preview')
+      .sort((a, b) => new Date(a.gameDate) - new Date(b.gameDate));
 
-    // Recent: last 3 finished
-    const recent = finished.slice(0, 3);
+    const recent  = finished.slice(0, 3);
 
     // Group upcoming into series
     const series = [];
     for (const g of scheduled) {
-      const isHome   = g.teams?.home?.team?.id === TEAM_ID;
-      const oppTeam  = isHome ? g.teams?.away?.team : g.teams?.home?.team;
-      const oppName  = oppTeam?.name || '?';
-      const last     = series[series.length - 1];
+      const isHome  = g.teams?.home?.team?.id === TEAM_ID;
+      const oppTeam = isHome ? g.teams?.away?.team : g.teams?.home?.team;
+      const oppName = oppTeam?.name || '?';
+      const last    = series[series.length - 1];
       if (last && last.oppName === oppName && last.isHome === isHome) {
         last.games.push(g);
       } else {
@@ -139,65 +194,40 @@ async function load() {
     const nextTwo = series.slice(0, 2);
 
     // ── Parse standings ───────────────────────────────────
-    let myRecord = null;
     let divTeams = [];
-
     for (const record of (standData.records || [])) {
       for (const tr of (record.teamRecords || [])) {
-        if (tr.team?.division?.id === DIV_ID) {
-          divTeams.push(tr);
-          if (tr.team?.id === TEAM_ID) myRecord = tr;
-        }
+        if (tr.team?.division?.id === DIV_ID) divTeams.push(tr);
       }
     }
-
-    // Sort by divisionRank
     divTeams.sort((a, b) => parseInt(a.divisionRank) - parseInt(b.divisionRank));
 
+    const myRecord = divTeams.find(t => t.team?.id === TEAM_ID);
     const wins   = myRecord?.wins   ?? '–';
     const losses = myRecord?.losses ?? '–';
     const pct    = myRecord?.winningPercentage ?? '–';
     const place  = myRecord?.divisionRank ? ordinal(parseInt(myRecord.divisionRank)) : '–';
 
-    // ── In-progress game ──────────────────────────────────
-    let inProgressHTML = '';
+    // ── Live game HTML ────────────────────────────────────
+    let liveHTML = '';
     if (inProgress.length > 0) {
-      const g = inProgress[0];
-      const isHome  = g.teams?.home?.team?.id === TEAM_ID;
-      const opp     = isHome ? g.teams?.away?.team?.name : g.teams?.home?.team?.name;
-      const myScore = isHome ? (g.teams?.home?.score ?? 0) : (g.teams?.away?.score ?? 0);
-      const opScore = isHome ? (g.teams?.away?.score ?? 0) : (g.teams?.home?.score ?? 0);
-      const inning  = g.linescore?.currentInningOrdinal || '';
-      const state   = g.linescore?.inningState || '';
-      inProgressHTML = `
+      const g      = inProgress[0];
+      const isHome = g.teams?.home?.team?.id === TEAM_ID;
+      const opp    = isHome ? g.teams?.away?.team?.name : g.teams?.home?.team?.name;
+      const myScr  = isHome ? (g.teams?.home?.score ?? 0) : (g.teams?.away?.score ?? 0);
+      const opScr  = isHome ? (g.teams?.away?.score ?? 0) : (g.teams?.home?.score ?? 0);
+      const inning = g.linescore?.currentInningOrdinal || '';
+      const state  = g.linescore?.inningState || '';
+      liveHTML = `
         <div class="section-label">Live</div>
         <div class="game-list" style="margin-bottom:1.5rem">
-          <div class="game inprogress">
-            <div class="game-date" style="color:#856404">${state} ${inning}</div>
+          <div class="game live-game">
+            <div class="game-date" style="color:#ffd60a;font-size:11px">${state} ${inning}</div>
             <div class="game-opp">${isHome ? 'vs' : '@'} ${opp}</div>
-            <div class="game-score" style="color:#856404;font-weight:700">${myScore}–${opScore}</div>
+            <div class="game-score" style="color:#ffd60a">${myScr}–${opScr}</div>
           </div>
         </div>`;
     }
-
-    // ── Recent results HTML ───────────────────────────────
-    const recentHTML = recent.length ? recent.map(g => {
-      const isHome  = g.teams?.home?.team?.id === TEAM_ID;
-      const opp     = isHome ? g.teams?.away?.team : g.teams?.home?.team;
-      const oppAbbr = opp?.abbreviation || opp?.name || '?';
-      const myScore = isHome ? g.teams?.home?.score : g.teams?.away?.score;
-      const opScore = isHome ? g.teams?.away?.score : g.teams?.home?.score;
-      const won     = isHome ? g.teams?.home?.isWinner : g.teams?.away?.isWinner;
-      return `
-        <div class="game">
-          <div class="game-date">${fmtDate(g.date)}</div>
-          <div class="game-opp">${isHome ? 'vs' : '@'} ${oppAbbr}</div>
-          <div class="game-score ${won ? 'win' : 'loss'}">
-            <span class="pill ${won ? 'w' : 'l'}">${won ? 'W' : 'L'}</span>${myScore}–${opScore}
-          </div>
-        </div>`;
-    }).join('')
-    : `<div class="game"><div class="game-opp" style="color:#999">No recent results found</div></div>`;
 
     // ── Upcoming series HTML ──────────────────────────────
     const seriesHTML = nextTwo.length ? nextTwo.map(s => `
@@ -207,15 +237,38 @@ async function load() {
           <div class="series-loc">${s.isHome ? 'Home' : 'Away'}</div>
         </div>
         <div class="series-games">
-          ${s.games.map(g => `<div class="series-game">${fmtDate(g.date)} · ${fmtTime(g.gameDate)}</div>`).join('')}
+          ${s.games.map(g => {
+            const tzId = g.venue?.timeZone?.id || 'America/Chicago';
+            return `<div class="series-game">${fmtDate(g.date)} · ${fmtGameTime(g.gameDate, tzId)}</div>`;
+          }).join('')}
         </div>
       </div>`).join('')
-    : `<div class="series-block"><div class="series-opp" style="color:#999">No upcoming games found</div></div>`;
+    : `<div class="series-block"><div class="series-opp" style="color:#666">No upcoming games found</div></div>`;
+
+    // ── Recent results HTML ───────────────────────────────
+    const recentHTML = recent.length ? recent.map(g => {
+      const isHome  = g.teams?.home?.team?.id === TEAM_ID;
+      const opp     = isHome ? g.teams?.away?.team : g.teams?.home?.team;
+      const oppAbbr = opp?.abbreviation || opp?.name || '?';
+      const myScr   = isHome ? g.teams?.home?.score : g.teams?.away?.score;
+      const opScr   = isHome ? g.teams?.away?.score : g.teams?.home?.score;
+      const won     = isHome ? g.teams?.home?.isWinner : g.teams?.away?.isWinner;
+      return `
+        <div class="game">
+          <div class="game-date">${fmtDate(g.date)}</div>
+          <div class="game-opp">${isHome ? 'vs' : '@'} ${oppAbbr}</div>
+          <div class="game-score ${won ? 'win' : 'loss'}">
+            <span class="pill ${won ? 'w' : 'l'}">${won ? 'W' : 'L'}</span>${myScr}–${opScr}
+          </div>
+        </div>`;
+    }).join('')
+    : `<div class="game"><div class="game-opp" style="color:#666">No recent results found</div></div>`;
 
     // ── Standings HTML ────────────────────────────────────
     const standHTML = divTeams.length ? divTeams.map(tr => {
-      const isMe = tr.team?.id === TEAM_ID;
-      const gb   = tr.gamesBack === '-' || tr.gamesBack === '0' ? '—' : tr.gamesBack;
+      const isMe  = tr.team?.id === TEAM_ID;
+      const gb    = tr.gamesBack === '-' || tr.gamesBack === '0' ? '—' : tr.gamesBack;
+      const l10   = lastTen(teamGamesMap[tr.team?.id] || [], tr.team?.id);
       return `
         <tr class="${isMe ? 'me' : ''}">
           <td>${tr.team?.name || '?'}</td>
@@ -223,9 +276,10 @@ async function load() {
           <td>${tr.losses}</td>
           <td>${tr.winningPercentage}</td>
           <td>${gb}</td>
+          <td>${l10}</td>
         </tr>`;
     }).join('')
-    : `<tr><td colspan="5" style="color:#999;padding:12px 14px">Standings unavailable</td></tr>`;
+    : `<tr><td colspan="6" style="color:#666;padding:12px 14px">Standings unavailable</td></tr>`;
 
     // ── Render ────────────────────────────────────────────
     main.innerHTML = `
@@ -242,19 +296,19 @@ async function load() {
         </div>
       </div>
 
-      ${inProgressHTML}
-
-      <div class="section-label">Recent results</div>
-      <div class="game-list">${recentHTML}</div>
+      ${liveHTML}
 
       <div class="section-label">Upcoming series</div>
       ${seriesHTML}
       <div style="margin-bottom:1.5rem"></div>
 
+      <div class="section-label">Recent results</div>
+      <div class="game-list" style="margin-bottom:1.5rem">${recentHTML}</div>
+
       <div class="section-label">NL Central standings</div>
       <div class="standings-card">
         <table>
-          <thead><tr><th>Team</th><th>W</th><th>L</th><th>PCT</th><th>GB</th></tr></thead>
+          <thead><tr><th>Team</th><th>W</th><th>L</th><th>PCT</th><th>GB</th><th>L10</th></tr></thead>
           <tbody>${standHTML}</tbody>
         </table>
       </div>`;
@@ -269,7 +323,7 @@ async function load() {
     main.innerHTML = `
       <div class="error">
         ⚠️ Couldn't load data. Try refreshing the page.
-        <br><small style="opacity:0.7;margin-top:4px;display:block">${err.message}</small>
+        <br><small style="opacity:0.6;margin-top:4px;display:block">${err.message}</small>
       </div>`;
   }
 }

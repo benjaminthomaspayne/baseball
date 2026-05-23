@@ -3,13 +3,27 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Cubs Tracker</title>
+<title>MLB Tracker</title>
 <style>
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #2a2a2f; color: #f0f0f0; min-height: 100vh; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #e8e6e1; color: #1a1a1a; min-height: 100vh; }
   .wrap { max-width: 480px; margin: 0 auto; padding: 1.25rem 1rem 2rem; }
 
-  .hero { border-radius: 14px; padding: 1.25rem 1.5rem; margin-bottom: 1.25rem; background: #0E3386; color: #fff; }
+  .team-tabs { display: flex; gap: 8px; margin-bottom: 1.25rem; }
+  .tab { flex: 1; padding: 10px; border-radius: 10px; border: none; font-size: 14px; font-weight: 600; cursor: pointer; transition: opacity 0.15s; opacity: 0.4; }
+  .tab.cubs-tab     { background: #0E3386; color: #fff; }
+  .tab.mariners-tab { background: #005C5C; color: #fff; }
+  .tab.cards-tab    { background: #C41E3A; color: #fff; }
+  .tab.active { opacity: 1; }
+  .tab:hover:not(.active) { opacity: 0.7; }
+
+  .content { display: none; }
+  .content.visible { display: block; }
+
+  .hero { border-radius: 14px; padding: 1.25rem 1.5rem; margin-bottom: 1.25rem; color: #fff; }
+  .hero.cubs     { background: #0E3386; }
+  .hero.mariners { background: #005C5C; }
+  .hero.cards    { background: #C41E3A; }
   .hero-top { display: flex; justify-content: space-between; align-items: center; }
   .hero-name { font-size: 22px; font-weight: 700; }
   .hero-sub { font-size: 13px; opacity: 0.7; margin-top: 3px; }
@@ -19,52 +33,76 @@
   .section-label { font-size: 11px; font-weight: 600; color: #888; text-transform: uppercase; letter-spacing: 0.07em; margin: 0 0 8px; }
 
   .game-list { display: flex; flex-direction: column; gap: 5px; margin-bottom: 1.5rem; }
-  .game { display: flex; align-items: center; gap: 10px; padding: 9px 12px; background: #2c2c2e; border-radius: 10px; border: 1px solid #3a3a3c; }
+  .game { display: flex; align-items: center; gap: 10px; padding: 9px 12px; background: #fff; border-radius: 10px; border: 1px solid #ddd; }
   .game-date { font-size: 12px; color: #888; min-width: 60px; }
-  .game-opp { font-size: 14px; font-weight: 500; flex: 1; color: #f0f0f0; }
+  .game-opp { font-size: 14px; font-weight: 500; flex: 1; color: #1a1a1a; }
   .game-score { font-size: 13px; font-weight: 600; white-space: nowrap; }
-  .game-score.win { color: #4cd97b; }
-  .game-score.loss { color: #ff6b6b; }
+  .game-score.win  { color: #1a7a3f; }
+  .game-score.loss { color: #c0392b; }
   .pill { display: inline-block; font-size: 10px; font-weight: 700; padding: 2px 6px; border-radius: 20px; margin-right: 5px; }
-  .pill.w { background: #1a4a2e; color: #4cd97b; }
-  .pill.l { background: #4a1a1a; color: #ff6b6b; }
+  .pill.w { background: #d4edda; color: #155724; }
+  .pill.l { background: #f8d7da; color: #721c24; }
 
-  .live-game { background: #2a2500 !important; border-color: #665500 !important; }
+  .live-game { background: #fffbe6 !important; border-color: #ffe066 !important; }
 
-  .series-block { background: #2c2c2e; border-radius: 10px; border: 1px solid #3a3a3c; padding: 10px 12px; margin-bottom: 8px; }
+  .series-block { background: #fff; border-radius: 10px; border: 1px solid #ddd; padding: 10px 12px; margin-bottom: 8px; }
   .series-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; }
-  .series-opp { font-size: 14px; font-weight: 600; color: #f0f0f0; }
-  .series-loc { font-size: 11px; color: #888; background: #3a3a3c; padding: 2px 7px; border-radius: 20px; }
+  .series-opp { font-size: 14px; font-weight: 600; color: #1a1a1a; }
+  .series-loc { font-size: 11px; color: #888; background: #f0f0f0; padding: 2px 7px; border-radius: 20px; }
   .series-games { display: flex; gap: 6px; flex-wrap: wrap; }
-  .series-game { font-size: 12px; color: #aaa; background: #3a3a3c; border-radius: 6px; padding: 4px 8px; }
+  .series-game { font-size: 12px; color: #555; background: #f7f7f7; border-radius: 6px; padding: 4px 8px; }
 
-  .standings-card { background: #2c2c2e; border-radius: 10px; border: 1px solid #3a3a3c; overflow: hidden; }
+  .standings-card { background: #fff; border-radius: 10px; border: 1px solid #ddd; overflow: hidden; }
   table { width: 100%; border-collapse: collapse; font-size: 13px; }
-  th { text-align: left; padding: 6px 14px; color: #666; font-weight: 500; font-size: 11px; border-bottom: 1px solid #3a3a3c; }
+  th { text-align: left; padding: 6px 14px; color: #999; font-weight: 500; font-size: 11px; border-bottom: 1px solid #eee; }
   th:not(:first-child) { text-align: right; }
-  td { padding: 8px 14px; border-bottom: 1px solid #3a3a3c; color: #ccc; }
+  td { padding: 8px 14px; border-bottom: 1px solid #f4f4f4; color: #333; }
   td:not(:first-child) { text-align: right; }
   tr:last-child td { border-bottom: none; }
-  tr.me td { font-weight: 700; background: #0e2a5e; color: #fff; }
-  tr.me td:first-child { color: #6b9fff; }
+  tr.me td { font-weight: 700; background: #f8f8f8; }
+  tr.me.cubs     td:first-child { color: #0E3386; }
+  tr.me.mariners td:first-child { color: #005C5C; }
+  tr.me.cards    td:first-child { color: #C41E3A; }
 
-  .loading { text-align: center; padding: 3rem 1rem; color: #666; font-size: 14px; }
-  .error { background: #2a2000; border: 1px solid #665500; border-radius: 10px; padding: 12px 16px; font-size: 13px; color: #ffd60a; margin-bottom: 1rem; }
-  .updated { font-size: 11px; color: #555; text-align: center; padding-top: 1.25rem; }
+  .loading { text-align: center; padding: 3rem 1rem; color: #aaa; font-size: 14px; }
+  .error { background: #fff3cd; border: 1px solid #ffc107; border-radius: 10px; padding: 12px 16px; font-size: 13px; color: #856404; margin-bottom: 1rem; }
+  .updated { font-size: 11px; color: #aaa; text-align: center; padding-top: 1.25rem; }
 </style>
 </head>
 <body>
 <div class="wrap">
-  <div id="main"><div class="loading">Loading Cubs data…</div></div>
+  <div class="team-tabs">
+    <button class="tab cubs-tab active"     onclick="switchTeam('cubs', this)">🐻 Cubs</button>
+    <button class="tab mariners-tab"        onclick="switchTeam('mariners', this)">🔱 Mariners</button>
+    <button class="tab cards-tab"           onclick="switchTeam('cards', this)">🐦 Cardinals</button>
+  </div>
+  <div id="cubs"     class="content visible"><div class="loading">Loading Cubs data…</div></div>
+  <div id="mariners" class="content"><div class="loading">Loading Mariners data…</div></div>
+  <div id="cards"    class="content"><div class="loading">Loading Cardinals data…</div></div>
   <div class="updated" id="updated"></div>
 </div>
 
 <script>
-const TEAM_ID = 112; // Chicago Cubs
-const DIV_ID  = 205; // NL Central
-const BASE    = 'https://statsapi.mlb.com/api/v1';
+const BASE = 'https://statsapi.mlb.com/api/v1';
 
-// Map IANA timezone IDs returned by MLB API to display codes
+const TEAMS = {
+  cubs: {
+    key: 'cubs', id: 112, name: 'Chicago Cubs', emoji: '🐻',
+    divId: 205, divName: 'NL Central', leagueId: 104,
+    divTeamIds: [112, 158, 138, 134, 113] // CHC MIL STL PIT CIN
+  },
+  mariners: {
+    key: 'mariners', id: 136, name: 'Seattle Mariners', emoji: '🔱',
+    divId: 200, divName: 'AL West', leagueId: 103,
+    divTeamIds: [136, 117, 108, 140, 133] // SEA HOU LAA TEX OAK/ATH
+  },
+  cards: {
+    key: 'cards', id: 138, name: 'St. Louis Cardinals', emoji: '🐦',
+    divId: 205, divName: 'NL Central', leagueId: 104,
+    divTeamIds: [112, 158, 138, 134, 113] // same as Cubs
+  }
+};
+
 const TZ_CODE = {
   'America/New_York':    'ET',
   'America/Detroit':     'ET',
@@ -76,8 +114,15 @@ const TZ_CODE = {
   'America/Seattle':     'PT',
 };
 
-// NL Central team IDs for last-10 calculation
-const NL_CENTRAL = [112, 158, 138, 134, 113]; // CHC MIL STL PIT CIN
+// Cache shared data so Cubs and Cardinals don't double-fetch NL Central
+const cache = {};
+
+function switchTeam(key, btn) {
+  document.querySelectorAll('.content').forEach(el => el.classList.remove('visible'));
+  document.getElementById(key).classList.add('visible');
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  btn.classList.add('active');
+}
 
 function fmtDate(dateStr) {
   const [y, m, d] = dateStr.split('-');
@@ -88,9 +133,8 @@ function fmtDate(dateStr) {
 
 function fmtGameTime(isoStr, tzId) {
   const code = TZ_CODE[tzId] || 'ET';
-  const ianaZone = tzId || 'America/New_York';
   const time = new Date(isoStr).toLocaleTimeString('en-US', {
-    hour: 'numeric', minute: '2-digit', timeZone: ianaZone
+    hour: 'numeric', minute: '2-digit', timeZone: tzId || 'America/New_York'
   });
   return `${time} (${code})`;
 }
@@ -100,18 +144,17 @@ function ordinal(n) {
   return n + (s[(v - 20) % 10] || s[v] || s[0]);
 }
 
-function dateStr(d) {
-  return d.toISOString().split('T')[0];
-}
+function dateStr(d) { return d.toISOString().split('T')[0]; }
 
 async function fetchJSON(url) {
   const res = await fetch(url);
-  if (!res.ok) throw new Error(`HTTP ${res.status} — ${url}`);
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
   return res.json();
 }
 
-// Get all finished regular-season games for a team this season
 async function fetchSeasonGames(teamId, season) {
+  const cacheKey = `season_${teamId}_${season}`;
+  if (cache[cacheKey]) return cache[cacheKey];
   const data = await fetchJSON(
     `${BASE}/schedule?sportId=1&teamId=${teamId}&season=${season}&gameType=R&fields=dates,date,games,gamePk,gameDate,status,abstractGameState,teams,home,away,team,id,isWinner`
   );
@@ -123,65 +166,58 @@ async function fetchSeasonGames(teamId, season) {
       }
     }
   }
-  return games.sort((a, b) => new Date(b.gameDate) - new Date(a.gameDate));
+  games.sort((a, b) => new Date(b.gameDate) - new Date(a.gameDate));
+  cache[cacheKey] = games;
+  return games;
 }
 
-// Calculate last-10 record from a team's finished games
 function lastTen(games, teamId) {
   const last = games.slice(0, 10);
   let w = 0, l = 0;
   for (const g of last) {
     const isHome = g.teams?.home?.team?.id === teamId;
-    const won    = isHome ? g.teams?.home?.isWinner : g.teams?.away?.isWinner;
-    won ? w++ : l++;
+    (isHome ? g.teams?.home?.isWinner : g.teams?.away?.isWinner) ? w++ : l++;
   }
   return `${w}-${l}`;
 }
 
-async function load() {
-  const main = document.getElementById('main');
+async function loadTeam(teamKey) {
+  const team = TEAMS[teamKey];
+  const el   = document.getElementById(teamKey);
+
   try {
     const today  = new Date();
     const season = today.getFullYear();
     const past   = new Date(today); past.setDate(today.getDate() - 10);
     const future = new Date(today); future.setDate(today.getDate() + 28);
 
-    // Fetch schedule (with venue/timezone), standings, and all NL Central season games in parallel
-    const [schedData, standData, ...nlcSeasonGames] = await Promise.all([
-      fetchJSON(`${BASE}/schedule?sportId=1&teamId=${TEAM_ID}&startDate=${dateStr(past)}&endDate=${dateStr(future)}&hydrate=linescore,venue&gameType=R`),
-      fetchJSON(`${BASE}/standings?leagueId=104&season=${season}&standingsTypes=regularSeason&hydrate=team(division)&fields=records,teamRecords,team,name,division,id,abbreviation,divisionRank,gamesBack,winningPercentage,wins,losses`),
-      ...NL_CENTRAL.map(id => fetchSeasonGames(id, season))
+    // Fetch schedule, standings, and all division team season games in parallel
+    const [schedData, standData, ...divSeasonGames] = await Promise.all([
+      fetchJSON(`${BASE}/schedule?sportId=1&teamId=${team.id}&startDate=${dateStr(past)}&endDate=${dateStr(future)}&hydrate=linescore,venue&gameType=R`),
+      fetchJSON(`${BASE}/standings?leagueId=${team.leagueId}&season=${season}&standingsTypes=regularSeason&hydrate=team(division)&fields=records,teamRecords,team,name,division,id,abbreviation,divisionRank,gamesBack,winningPercentage,wins,losses`),
+      ...team.divTeamIds.map(id => fetchSeasonGames(id, season))
     ]);
 
-    // Build map of teamId -> finished games for last-10
     const teamGamesMap = {};
-    NL_CENTRAL.forEach((id, i) => { teamGamesMap[id] = nlcSeasonGames[i]; });
+    team.divTeamIds.forEach((id, i) => { teamGamesMap[id] = divSeasonGames[i]; });
 
     // ── Parse schedule ────────────────────────────────────
     const allGames = [];
     for (const d of (schedData.dates || [])) {
-      for (const g of (d.games || [])) {
-        allGames.push({ date: d.date, ...g });
-      }
+      for (const g of (d.games || [])) allGames.push({ date: d.date, ...g });
     }
 
-    const finished   = allGames
-      .filter(g => g.status?.abstractGameState === 'Final')
-      .sort((a, b) => new Date(b.gameDate) - new Date(a.gameDate));
+    const finished   = allGames.filter(g => g.status?.abstractGameState === 'Final')
+                               .sort((a, b) => new Date(b.gameDate) - new Date(a.gameDate));
+    const inProgress = allGames.filter(g => g.status?.abstractGameState === 'Live');
+    const scheduled  = allGames.filter(g => g.status?.abstractGameState === 'Preview')
+                               .sort((a, b) => new Date(a.gameDate) - new Date(b.gameDate));
 
-    const inProgress = allGames
-      .filter(g => g.status?.abstractGameState === 'Live');
+    const recent = finished.slice(0, 3);
 
-    const scheduled  = allGames
-      .filter(g => g.status?.abstractGameState === 'Preview')
-      .sort((a, b) => new Date(a.gameDate) - new Date(b.gameDate));
-
-    const recent  = finished.slice(0, 3);
-
-    // Group upcoming into series
     const series = [];
     for (const g of scheduled) {
-      const isHome  = g.teams?.home?.team?.id === TEAM_ID;
+      const isHome  = g.teams?.home?.team?.id === team.id;
       const oppTeam = isHome ? g.teams?.away?.team : g.teams?.home?.team;
       const oppName = oppTeam?.name || '?';
       const last    = series[series.length - 1];
@@ -197,22 +233,22 @@ async function load() {
     let divTeams = [];
     for (const record of (standData.records || [])) {
       for (const tr of (record.teamRecords || [])) {
-        if (tr.team?.division?.id === DIV_ID) divTeams.push(tr);
+        if (tr.team?.division?.id === team.divId) divTeams.push(tr);
       }
     }
     divTeams.sort((a, b) => parseInt(a.divisionRank) - parseInt(b.divisionRank));
 
-    const myRecord = divTeams.find(t => t.team?.id === TEAM_ID);
-    const wins   = myRecord?.wins   ?? '–';
+    const myRecord = divTeams.find(t => t.team?.id === team.id);
+    const wins   = myRecord?.wins ?? '–';
     const losses = myRecord?.losses ?? '–';
     const pct    = myRecord?.winningPercentage ?? '–';
     const place  = myRecord?.divisionRank ? ordinal(parseInt(myRecord.divisionRank)) : '–';
 
-    // ── Live game HTML ────────────────────────────────────
+    // ── Live HTML ─────────────────────────────────────────
     let liveHTML = '';
     if (inProgress.length > 0) {
       const g      = inProgress[0];
-      const isHome = g.teams?.home?.team?.id === TEAM_ID;
+      const isHome = g.teams?.home?.team?.id === team.id;
       const opp    = isHome ? g.teams?.away?.team?.name : g.teams?.home?.team?.name;
       const myScr  = isHome ? (g.teams?.home?.score ?? 0) : (g.teams?.away?.score ?? 0);
       const opScr  = isHome ? (g.teams?.away?.score ?? 0) : (g.teams?.home?.score ?? 0);
@@ -222,14 +258,14 @@ async function load() {
         <div class="section-label">Live</div>
         <div class="game-list" style="margin-bottom:1.5rem">
           <div class="game live-game">
-            <div class="game-date" style="color:#ffd60a;font-size:11px">${state} ${inning}</div>
+            <div class="game-date" style="color:#856404;font-size:11px">${state} ${inning}</div>
             <div class="game-opp">${isHome ? 'vs' : '@'} ${opp}</div>
-            <div class="game-score" style="color:#ffd60a">${myScr}–${opScr}</div>
+            <div class="game-score" style="color:#856404;font-weight:700">${myScr}–${opScr}</div>
           </div>
         </div>`;
     }
 
-    // ── Upcoming series HTML ──────────────────────────────
+    // ── Upcoming HTML ─────────────────────────────────────
     const seriesHTML = nextTwo.length ? nextTwo.map(s => `
       <div class="series-block">
         <div class="series-header">
@@ -243,11 +279,11 @@ async function load() {
           }).join('')}
         </div>
       </div>`).join('')
-    : `<div class="series-block"><div class="series-opp" style="color:#666">No upcoming games found</div></div>`;
+    : `<div class="series-block"><div class="series-opp" style="color:#aaa">No upcoming games found</div></div>`;
 
-    // ── Recent results HTML ───────────────────────────────
+    // ── Recent HTML ───────────────────────────────────────
     const recentHTML = recent.length ? recent.map(g => {
-      const isHome  = g.teams?.home?.team?.id === TEAM_ID;
+      const isHome  = g.teams?.home?.team?.id === team.id;
       const opp     = isHome ? g.teams?.away?.team : g.teams?.home?.team;
       const oppAbbr = opp?.abbreviation || opp?.name || '?';
       const myScr   = isHome ? g.teams?.home?.score : g.teams?.away?.score;
@@ -262,15 +298,15 @@ async function load() {
           </div>
         </div>`;
     }).join('')
-    : `<div class="game"><div class="game-opp" style="color:#666">No recent results found</div></div>`;
+    : `<div class="game"><div class="game-opp" style="color:#aaa">No recent results found</div></div>`;
 
     // ── Standings HTML ────────────────────────────────────
     const standHTML = divTeams.length ? divTeams.map(tr => {
-      const isMe  = tr.team?.id === TEAM_ID;
-      const gb    = tr.gamesBack === '-' || tr.gamesBack === '0' ? '—' : tr.gamesBack;
-      const l10   = lastTen(teamGamesMap[tr.team?.id] || [], tr.team?.id);
+      const isMe = tr.team?.id === team.id;
+      const gb   = tr.gamesBack === '-' || tr.gamesBack === '0' ? '—' : tr.gamesBack;
+      const l10  = lastTen(teamGamesMap[tr.team?.id] || [], tr.team?.id);
       return `
-        <tr class="${isMe ? 'me' : ''}">
+        <tr class="${isMe ? 'me ' + teamKey : ''}">
           <td>${tr.team?.name || '?'}</td>
           <td>${tr.wins}</td>
           <td>${tr.losses}</td>
@@ -279,15 +315,15 @@ async function load() {
           <td>${l10}</td>
         </tr>`;
     }).join('')
-    : `<tr><td colspan="6" style="color:#666;padding:12px 14px">Standings unavailable</td></tr>`;
+    : `<tr><td colspan="6" style="color:#aaa;padding:12px 14px">Standings unavailable</td></tr>`;
 
     // ── Render ────────────────────────────────────────────
-    main.innerHTML = `
-      <div class="hero">
+    el.innerHTML = `
+      <div class="hero ${teamKey}">
         <div class="hero-top">
           <div>
-            <div class="hero-name">🐻 Chicago Cubs</div>
-            <div class="hero-sub">NL Central · ${place} place</div>
+            <div class="hero-name">${team.emoji} ${team.name}</div>
+            <div class="hero-sub">${team.divName} · ${place} place</div>
           </div>
           <div class="hero-record">
             <div class="big">${wins}–${losses}</div>
@@ -305,7 +341,7 @@ async function load() {
       <div class="section-label">Recent results</div>
       <div class="game-list" style="margin-bottom:1.5rem">${recentHTML}</div>
 
-      <div class="section-label">NL Central standings</div>
+      <div class="section-label">${team.divName} standings</div>
       <div class="standings-card">
         <table>
           <thead><tr><th>Team</th><th>W</th><th>L</th><th>PCT</th><th>GB</th><th>L10</th></tr></thead>
@@ -313,14 +349,8 @@ async function load() {
         </table>
       </div>`;
 
-    document.getElementById('updated').textContent = 'Updated ' +
-      new Date().toLocaleString('en-US', {
-        weekday: 'short', month: 'short', day: 'numeric',
-        hour: 'numeric', minute: '2-digit', timeZone: 'America/Chicago'
-      });
-
   } catch(err) {
-    main.innerHTML = `
+    el.innerHTML = `
       <div class="error">
         ⚠️ Couldn't load data. Try refreshing the page.
         <br><small style="opacity:0.6;margin-top:4px;display:block">${err.message}</small>
@@ -328,7 +358,14 @@ async function load() {
   }
 }
 
-load();
+// Load all three in parallel
+Promise.all([loadTeam('cubs'), loadTeam('mariners'), loadTeam('cards')]).then(() => {
+  document.getElementById('updated').textContent = 'Updated ' +
+    new Date().toLocaleString('en-US', {
+      weekday: 'short', month: 'short', day: 'numeric',
+      hour: 'numeric', minute: '2-digit', timeZone: 'America/Chicago'
+    });
+});
 </script>
 </body>
 </html>
